@@ -1,0 +1,40 @@
+version: '3.4'
+
+services:
+  # Construimos un contenedor para el servidor SQL
+  sqlserver:
+    # Especificamos un nombre personalizado para el contenedor
+    container_name: sqlserver_container
+    # Como imagen sobre la que construir el contenedor escogemos...
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    # Mapeamos el puerto por defecto del servidor SQL (:1433) al puerto ":8002"
+    ports:
+      - 8002:1433
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=Admin1234@
+  hospital:
+    container_name: hospital_container
+    image: ${DOCKER_REGISTRY-}hospital
+    # Mapeamos tanto el puerto HTTP (:80) como el puerto HTTPS (:443) por los que
+    # se muestran dentro del fichero "~/Hospital/Properties/launchSettings.json"
+    ports:
+      - 5178:80
+      - 7054:443
+    # Seguir el siguiente tutorial : "https://learn.microsoft.com/en-us/aspnet/core/security/docker-compose-https?view=aspnetcore-8.0"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=https://+;http://+
+      - ASPNETCORE_HTTP_PORT=5178
+      - ASPNETCORE_HTTPS_PORT=7054
+      # La password debe coincidir con la que pongamos posteriormente al crear el certificado
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=Admin1234@
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aspnetapp.pfx
+    volumes:
+      - ~/.aspnet/https:/https:ro
+    build:
+      context: .
+      dockerfile: Hospital/Dockerfile
+    # Depende del contenedor "sqlserver" para poder acceder a la base de datos
+    depends_on:
+      - sqlserver
